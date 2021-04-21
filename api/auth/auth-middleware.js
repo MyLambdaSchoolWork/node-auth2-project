@@ -36,10 +36,19 @@ const only = role_name => (req, res, next) => {
 
 
 const checkUsernameExists = async (req, res, next) => {
+  const { username } = req.body
+  if(!username){
+    next({ status: 400, message: `username is required`})
+    return
+  }
+
   const [user] = await users.findBy({ username: req.body.username })
-  user
-    ? next({ status: 401, message: 'Invalid credintials'})
-    : next()
+  if(user){
+    req.user = user
+    next()
+  } else {
+    next({ status: 401, message: 'Invalid credentials'})
+  }
   /*
     If the username in req.body does NOT exist in the database
     status 401

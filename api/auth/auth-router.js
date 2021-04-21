@@ -36,6 +36,12 @@ router.post("/register", validateRoleName, checkUsernameUnique, (req, res, next)
 
 
 router.post("/login", checkUsernameExists, (req, res, next) => {
+  const { password: goodHash } = req.user
+  const { password } = req.body
+
+  bcrypt.compareSync(password, goodHash)
+    ? next()
+    : next({ status: 401, message: 'Invalid credentials'})
   /**
     [POST] /api/auth/login { "username": "sue", "password": "1234" }
 
@@ -62,9 +68,9 @@ router.post("/login", checkUsernameExists, (req, res, next) => {
 // because normally when you register you sign in
 // but that would fail tests in this case
 router.use( (req, res) => {
-  const { id, username, role_name } = req.user
+  const { user_id, username, role_name } = req.user
   const payload = {
-    subject: id,
+    subject: user_id,
     username,
     role_name
   }
