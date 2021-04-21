@@ -1,8 +1,26 @@
-const router = require("express").Router();
-const { checkUsernameExists, validateRoleName } = require('./auth-middleware');
-const { JWT_SECRET } = require("../secrets"); // use this secret!
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcryptjs')
+const router = require("express").Router()
 
-router.post("/register", validateRoleName, (req, res, next) => {
+const { checkUsernameExists, validateRoleName, checkUsernameUnique } = require('./auth-middleware')
+const { add } = require('../users/users-model')
+const { JWT_SECRET } = require("../secrets") // use this secret!
+
+router.post("/register", validateRoleName, checkUsernameUnique, (req, res, next) => {
+  const { username, password, role_name } = req.body
+
+  const hash = bcrypt.hashSync(password, 12)
+
+  add({
+    username,
+    role_name,
+    password: hash
+  })
+    .then( newUser => {
+      res.status(201).json(newUser)
+    })
+    .catch(next)
+
   /**
     [POST] /api/auth/register { "username": "anna", "password": "1234", "role_name": "angel" }
 
@@ -14,10 +32,16 @@ router.post("/register", validateRoleName, (req, res, next) => {
       "role_name": "angel"
     }
    */
-});
+})
 
 
 router.post("/login", checkUsernameExists, (req, res, next) => {
+  const { password: goodHash } = req.user
+  const { password } = req.body
+
+  bcrypt.compareSync(password, goodHash)
+    ? next()
+    : next({ status: 401, message: 'Invalid credentials'})
   /**
     [POST] /api/auth/login { "username": "sue", "password": "1234" }
 
@@ -37,6 +61,23 @@ router.post("/login", checkUsernameExists, (req, res, next) => {
       "role_name": "admin" // the role of the authenticated user
     }
    */
-});
+})
 
-module.exports = router;
+// reason this is there is so I can call next
+// from either login or register and send a token
+// because normally when you register you sign in
+// but that would fail tests in this case
+router.use( (req, res) => {
+  const { user_id, username, role_name } = req.user
+  const payload = {
+    subject: user_id,
+    username,
+    role_name
+  }
+  const options = {
+    expiresIn: '1d'
+  }
+  const token = jwt.sign(payload, JWT_SECRET, options)
+  res.status(200).json({ message: `${username} is back`, token})
+})
+module.exports = router

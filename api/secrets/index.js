@@ -7,5 +7,12 @@
   developers cloning this repo won't be able to run the project as is.
  */
 module.exports = {
+  JWT_SECRET: getSecret()
+}
 
+function getSecret(){
+  if(process.env.NODE_ENV !== 'production'){
+    require('dotenv').config()
+  }
+  return process.env.JWT_SECRET
 }
